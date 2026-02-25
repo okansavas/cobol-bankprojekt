@@ -1,4 +1,4 @@
-       IDENTIFICATION DIVISION.
+      IDENTIFICATION DIVISION.
        PROGRAM-ID. UPDATEBALANCE.
 
        ENVIRONMENT DIVISION.
@@ -6,82 +6,94 @@
        FILE-CONTROL.
            SELECT KUNDEN-DATEI ASSIGN TO "kunden.dat"
                ORGANIZATION IS LINE SEQUENTIAL.
+           SELECT TEMP-DATEI ASSIGN TO "kunden.tmp"
+               ORGANIZATION IS LINE SEQUENTIAL.
 
        DATA DIVISION.
        FILE SECTION.
        FD KUNDEN-DATEI.
        01 KUNDEN-EINTRAG.
-           05 KUNDEN-NR     PIC 9(5).
-           05 KUNDEN-NAME   PIC X(30).
-           05 KUNDEN-KONTO  PIC 9(7)V99.
+           05 K-NR             PIC 9(5).
+           05 K-NAME           PIC X(30).
+           05 K-KONTO          PIC 9(7)V99.
+
+       FD TEMP-DATEI.
+       01 TEMP-EINTRAG.
+           05 T-NR             PIC 9(5).
+           05 T-NAME           PIC X(30).
+           05 T-KONTO          PIC 9(7)V99.
 
        WORKING-STORAGE SECTION.
-       01 SUCH-NR            PIC 9(5).
-       01 GEFUNDEN-FLAGGE    PIC X VALUE 'N'.
-       01 AUSWAHL            PIC 9.
-       01 BETRAG             PIC 9(7)V99.
-       01 NEUES-GUTHABEN     PIC 9(7)V99.
-       01 EOF-FLAGGE         PIC X VALUE 'N'.
+       01 SUCH-NR              PIC 9(5).
+       01 GEFUNDEN-FLAGGE      PIC X VALUE 'N'.
+       01 EOF-FLAGGE           PIC X VALUE 'N'.
+       01 AUSWAHL              PIC 9.
+       01 BETRAG               PIC 9(7)V99.
+       01 MASK-KONTO           PIC Z(7).99.
 
        PROCEDURE DIVISION.
-
        BEGIN.
-           OPEN I-O KUNDEN-DATEI
-
+           DISPLAY " "
+           DISPLAY "--- GUTHABEN AKTUALISIEREN ---"
            DISPLAY "Bitte Kundennummer eingeben: "
            ACCEPT SUCH-NR
 
-           PERFORM SUCHE-MODUL
+           OPEN INPUT KUNDEN-DATEI
+           OPEN OUTPUT TEMP-DATEI
+
+           PERFORM UNTIL EOF-FLAGGE = 'J'
+               READ KUNDEN-DATEI
+                   AT END 
+                       MOVE 'J' TO EOF-FLAGGE
+                   NOT AT END
+                       IF K-NR = SUCH-NR
+                           MOVE 'Y' TO GEFUNDEN-FLAGGE
+                           PERFORM KONTO-UPDATE-LOGIK
+                       END-IF
+                       *> Daten in die temporäre Datei schreiben
+                       MOVE K-NR TO T-NR
+                       MOVE K-NAME TO T-NAME
+                       MOVE K-KONTO TO T-KONTO
+                       WRITE TEMP-EINTRAG
+               END-READ
+           END-PERFORM
+
+           CLOSE KUNDEN-DATEI
+           CLOSE TEMP-DATEI
 
            IF GEFUNDEN-FLAGGE = 'Y'
-               DISPLAY "Kunde: " KUNDEN-NAME
-               DISPLAY "Aktuelles Guthaben: " KUNDEN-KONTO
-               DISPLAY "1. Einzahlung"
-               DISPLAY "2. Auszahlung"
-               DISPLAY "Wahl: "
-               ACCEPT AUSWAHL
-               DISPLAY "Betrag eingeben: "
-               ACCEPT BETRAG
-
-               EVALUATE AUSWAHL
-                   WHEN 1
-                       COMPUTE NEUES-GUTHABEN = KUNDEN-KONTO + BETRAG
-                   WHEN 2
-                       IF BETRAG > KUNDEN-KONTO
-                           DISPLAY "Nicht genug Guthaben!"
-                           MOVE KUNDEN-KONTO TO NEUES-GUTHABEN
-                       ELSE
-                           COMPUTE NEUES-GUTHABEN = KUNDEN-KONTO -BETRAG
-                       END-IF
-                   WHEN OTHER
-                       DISPLAY "Ungueltige Auswahl."
-                       PERFORM SCHLIESSEN
-                       STOP RUN
-               END-EVALUATE
-
-               MOVE NEUES-GUTHABEN TO KUNDEN-KONTO
-               REWRITE KUNDEN-EINTRAG
-               DISPLAY "Guthaben aktualisiert: " KUNDEN-KONTO
+               *> Dateien im System ersetzen
+               CALL "SYSTEM" USING "rm kunden.dat"
+               CALL "SYSTEM" USING "mv kunden.tmp kunden.dat"
+               DISPLAY "Update erfolgreich abgeschlossen."
            ELSE
-               DISPLAY "Kunde nicht gefunden."
+               CALL "SYSTEM" USING "rm kunden.tmp"
+               DISPLAY "Fehler: Kunde nicht gefunden!"
            END-IF
 
-           PERFORM SCHLIESSEN
-           STOP RUN.
+           GOBACK.
 
-       SUCHE-MODUL.
-           PERFORM UNTIL EOF-FLAGGE = 'Y'
-               READ KUNDEN-DATEI
-                   AT END
-                       MOVE 'Y' TO EOF-FLAGGE
-                   NOT AT END
-                       IF KUNDEN-NR = SUCH-NR
-                           MOVE 'Y' TO GEFUNDEN-FLAGGE
-                           MOVE 'Y' TO EOF-FLAGGE
-                       END-IF
-               END-READ
-           END-PERFORM.
+       KONTO-UPDATE-LOGIK.
+           MOVE K-KONTO TO MASK-KONTO
+           DISPLAY "Kunde      : " K-NAME
+           DISPLAY "Aktuelles Guthaben: " MASK-KONTO " EUR"
+           DISPLAY "1 - Einzahlung (Yatirma)"
+           DISPLAY "2 - Auszahlung (Cekme)"
+           DISPLAY "Auswahl: "
+           ACCEPT AUSWAHL
+           DISPLAY "Betrag eingeben: "
+           ACCEPT BETRAG
 
-       SCHLIESSEN.
-           CLOSE KUNDEN-DATEI. 
-           
+           IF AUSWAHL = 1
+               ADD BETRAG TO K-KONTO
+           ELSE
+               IF AUSWAHL = 2
+                   IF BETRAG <= K-KONTO
+                       SUBTRACT BETRAG FROM K-KONTO
+                   ELSE
+                       DISPLAY "Fehler: Nicht genuegend Guthaben!"
+                   END-IF
+               ELSE
+                   DISPLAY "Ungueltige Auswahl! Keine Aenderung."
+               END-IF
+           END-IF.
