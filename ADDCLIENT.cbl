@@ -45,4 +45,4 @@
            END-PERFORM
 
            CLOSE KUNDEN-DATEI
-           STOP RUN.
+           GOBACK.
