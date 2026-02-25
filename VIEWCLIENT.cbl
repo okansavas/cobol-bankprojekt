@@ -46,4 +46,4 @@
            END-IF
 
            CLOSE KUNDEN-DATEI
-           STOP RUN.
+           GOBACK.
