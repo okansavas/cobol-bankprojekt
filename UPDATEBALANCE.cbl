@@ -63,11 +63,11 @@
 
            IF GEFUNDEN-FLAGGE = 'Y'
                *> Dateien im System ersetzen
-               CALL "SYSTEM" USING "rm kunden.dat"
-               CALL "SYSTEM" USING "mv kunden.tmp kunden.dat"
+               CALL "SYSTEM" USING "del kunden.dat"
+               CALL "SYSTEM" USING "rename kunden.tmp kunden.dat"
                DISPLAY "Update erfolgreich abgeschlossen."
            ELSE
-               CALL "SYSTEM" USING "rm kunden.tmp"
+               CALL "SYSTEM" USING "del kunden.tmp"
                DISPLAY "Fehler: Kunde nicht gefunden!"
            END-IF
 
