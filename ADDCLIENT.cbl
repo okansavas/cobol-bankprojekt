@@ -24,10 +24,7 @@
        PROCEDURE DIVISION.
        BEGIN.
 
-           OPEN OUTPUT KUNDEN-DATEI
-           CLOSE KUNDEN-DATEI
-           
-           OPEN EXTEND KUNDEN-DATEI
+           OPEN EXTEND KUNDEN-DATEI.
 
            PERFORM UNTIL WEITER-FLAGGE NOT = 'J'
                DISPLAY "Kundennummer eingeben: "
